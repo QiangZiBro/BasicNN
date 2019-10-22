@@ -1,67 +1,7 @@
 from bp_utils import *
+import sys, getopt
 
-#################################################
-
-t = []
-train_accuracy_rate = []
-valid_accuracy_rate = []
-#################################################
-
-# 3 --> 4 -- > 1
-def model(X,y,X_valid=None,y_valid=None,batch_size = 1,epochs=1,learning_rate=0.01,show_figure=False):
-    print("Input size(dimension,N):",X.shape)
-    print("Output size(dimension,N):",y.shape)
-    print("batch_size:%d,epochs=%d,learning_rate=%f\n" % (batch_size,epochs,learning_rate) )
-    print("Start training...")
-    parameters = initialize_parameters([X.shape[0],10,y.shape[0]])
-
-    m = X.shape[1] # instance number
-    batch_number = m // batch_size
-    for epoch in range(epochs):
-        for i in range(batch_number):
-            A0 = X[:,i:i+batch_size]
-            Y  = y[:,i:i+batch_size]
-            W1,b1,W2,b2 = parameters["W1"],parameters["b1"],parameters["W2"],parameters["b2"]
-            A1,_ = forward(W1,A0,b1)
-            A2,_ = forward(W2,A1,b2)            
-            # forward propagate
-            delta2 = compute_local_gradient_output(Y,A2)
-            delta1 = compute_local_gradient_hidden(A1,W2,delta2)
-
-            # #  average for the batch
-            # if batch_size > 1:
-            #     delta1 = np.average(delta1,axis=1).reshape(-1,1)
-            #     delta2 = np.average(delta2,axis=1).reshape(-1,1)
-            #     A0  =   np.average(A0,axis=1).reshape(-1,1)
-            #     A1  =   np.average(A1,axis=1).reshape(-1,1)
-            #     A2  =   np.average(A2,axis=1).reshape(-1,1)
-
-            cache = (A0,A1,A2)
-            delta = (delta1,delta2)          
-            # backward propagate
-            parameters = update_parameters(parameters,delta,cache,learning_rate=learning_rate)
-        
-        if (epoch+1)%100 == 0:
-            loss = compute_loss(A2,y)
-            print("epochs:%d,loss:%f" % (epoch+1,loss))
-        if show_figure:
-            #reference:https://blog.csdn.net/u013468614/article/details/58689735#11__6
-            train__rate = compute_accuracy_rate(predict(parameters,X),y)
-            valid_rate = compute_accuracy_rate(predict(parameters,X_valid),y_valid)
-
-            plt.clf() #清空画布上的所有内容
-            t_now = epoch
-            t.append(t_now)#模拟数据增量流入，保存历史数据
-            train_accuracy_rate.append(train__rate)#模拟数据增量流入，保存历史数据
-            valid_accuracy_rate.append(valid_rate)
-            plt.plot(t,train_accuracy_rate,'-r',label = "train_accuracy")
-            plt.plot(t,valid_accuracy_rate,'-g',label = "test_accuracy")
-            plt.legend()
-            plt.pause(0.01)
-    return parameters
-
-
-def two_layer_model(train_X, train_y, layers_dims,batch_size = 1 ,learning_rate=0.0075, num_iterations=3000, print_cost=False,title="BackPropgation"):
+def two_layer_model(train_X, train_y, layers_dims,batch_size = 1 ,test_X = None,test_y = None,learning_rate=0.0075, num_iterations=3000, print_cost=False,title="BackPropgation"):
 
     """
     Implements a two-layer neural network: LINEAR->RELU->LINEAR->SIGMOID.
@@ -170,57 +110,175 @@ def two_layer_model(train_X, train_y, layers_dims,batch_size = 1 ,learning_rate=
                 plt.legend()
             plt.pause(0.01)
     plt.savefig("results/" + title +"lr" +str(learning_rate) + "bt" +str( batch_size )+ ".png")
-    writedata(parameters,title+".txt")
+    writedata(parameters,"./results/"+title+".txt")
+    scores_cache = (train_scores,test_scores)
+    return parameters,costs,scores_cache
+
+def L_layer_model(train_X,train_y, layers_dims, learning_rate=0.0075, num_iterations=3000, print_cost=False):  # lr was 0.009
+    """
+    Implements a L-layer neural network: [LINEAR->RELU]*(L-1)->LINEAR->SIGMOID.
+
+    Arguments:
+    X -- data, numpy array of shape (number of examples, num_px * num_px * 3)
+    Y -- true "label" vector (containing 0 if cat, 1 if non-cat), of shape (1, number of examples)
+    layers_dims -- list containing the input size and each layer size, of length (number of layers + 1).
+    learning_rate -- learning rate of the gradient descent update rule
+    num_iterations -- number of iterations of the optimization loop
+    print_cost -- if True, it prints the cost every 100 steps
+
+    Returns:
+    parameters -- parameters learnt by the model. They can then be used to predict.
+    """
+    X,Y = train_X,train_y
+    np.random.seed(1)
+    costs = []  # keep track of cost
+    train_scores = []
+    test_scores = []
+    # Parameters initialization.
+    ### START CODE HERE ###
+    parameters = initialize_parameters_deep(layers_dims)
+    ### END CODE HERE ###
+
+    # Loop (gradient descent)
+    for i in range(0, num_iterations):
+
+        # Forward propagation: [LINEAR -> RELU]*(L-1) -> LINEAR -> SIGMOID.
+        ### START CODE HERE ### (≈ 1 line of code)
+        AL, caches = L_model_forward(X, parameters)
+        ### END CODE HERE ###
+
+        # Compute cost.
+        ### START CODE HERE ### (≈ 1 line of code)
+        cost = compute_cost(AL, Y)
+        ### END CODE HERE ###
+
+        # Backward propagation.
+        ### START CODE HERE ### (≈ 1 line of code)
+        grads = L_model_backward(AL, Y, caches)
+        ### END CODE HERE ###
+
+        # Update parameters.
+        ### START CODE HERE ### (≈ 1 line of code)
+        parameters = update_parameters(parameters, grads, learning_rate)
+        ### END CODE HERE ###
+
+        # Print the cost every 100 training example
+        # if print_cost and i % 100 == 0:
+        #     # Retrieve W1, b1, W2, b2 from parameters
+        #     W1 = parameters["W1"]
+        #     b1 = parameters["b1"]
+        #     W2 = parameters["W2"]
+        #     b2 = parameters["b2"]
+        #     # 1.score the model
+        #     pred = predict(train_X, parameters)
+        #     sc = (score(pred,train_y))
+        #     train_scores.append(sc)
+        #
+        #     # 2.Compute cost
+        #     A1, cache1 = linear_activation_forward(train_X, W1, b1, "sigmoid")
+        #     A2, cache2 = linear_activation_forward(A1, W2, b2, "sigmoid")
+        #     cost = compute_loss(A2, train_y)
+        #     print("Cost after iteration {}: {}".format(i, np.squeeze(cost)))
+        #     costs.append(cost)
+        #
+        #     # 3.plot some details
+        #     plt.figure(2)
+        #     plt.clf()
+        #     plt.subplot(2,1,1)
+        #     plt.ylabel('cost')
+        #     plt.title("Learning rate =" + str(learning_rate))
+        #     plt.plot(np.squeeze(costs))
+        #
+        #     plt.subplot(2,1,2)
+        #     plt.ylabel('accuracy')
+        #     plt.xlabel('iterations (per hundred)')
+        #
+        #     plt.plot(np.squeeze(train_scores),'-r',label="train")
+        #     if test_X is not None:
+        #         pred = predict(test_X, parameters)
+        #         sc = (score(pred, test_y))
+        #         test_scores.append(sc)
+        #         plt.plot(np.squeeze(test_scores),'-g',label="test")
+        #         plt.legend()
+        #     plt.pause(0.01)
+
+        # Print the cost every 100 training example
+        if print_cost and i % 100 == 0:
+            print("Cost after iteration %i: %f" % (i, cost))
+        if print_cost and i % 100 == 0:
+            costs.append(cost)
+
+    # plot the cost
+    plt.plot(np.squeeze(costs))
+    plt.ylabel('cost')
+    plt.xlabel('iterations (per tens)')
+    plt.title("Learning rate =" + str(learning_rate))
+    plt.show()
     return parameters
 
-if __name__ == "__main__":
-    # 1.XOR problem solved
-    # train_X,train_y = np.array([[0,1,0,1],[0,1,1,0],[0,0,0,0]]), np.array([0,0,1,1]).reshape(1,-1)
-    # test_X,test_y = None,None
-    # print(train_y)
-    # title = "XOR"
-    ######
-    # parameters1 = {'W1': array([[ 1.73243585, -0.68443081, -0.3049401 ],
-    #    [-0.50408306,  0.71634201, -1.32879399],
-    #    [ 2.35611471, -1.26099638,  0.18419731],
-    #    [-0.50976544,  1.57069881, -1.18942279],
-    #    [-0.21183062, -0.17974914,  0.65458209],
-    #    [-0.64250018, -0.11107727, -0.50683179],
-    #    [ 0.04255135,  0.61952975, -0.63544278],
-    #    [ 3.13704557,  2.96127197,  0.29011524],
-    #    [ 0.64372309, -1.45082764, -0.0709507 ],
-    #    [-0.55775774, -0.16705329,  0.30620087]]), 'b1': array([[ 0.54276744],
-    #    [ 0.11961244],
-    #    [ 0.85749304],
-    #    [ 0.22042712],
-    #    [-0.03708293],
-    #    [ 0.00316321],
-    #    [-0.02467956],
-    #    [-0.4479583 ],
-    #    [-0.46912593],
-    #    [ 0.05253329]]), 'W2': array([[-1.10156642, -0.35530683, -1.78710325, -1.23327693, -0.04609117,
-    #      0.14979973, -0.61855703,  3.38594615,  1.35710835,  0.39337344]]), 'b2': array([[0.05044877]])}
-    # pred = predict(train_X, parameters1)
-    # sc = (score(pred, train_y))
-    # print(sc)
+def XOR():
+    # 1.XOR problem [solved]
+    train_X,train_y = np.array([[0,1,0,1],[0,1,1,0],[0,0,0,0]]), np.array([0,0,1,1]).reshape(1,-1)
+    test_X,test_y = None,None
+    print(train_y)
+    title = "XOR"
+    parameters = two_layer_model(train_X,train_y,[3,10,1],batch_size=train_X.shape[1],
+                                 learning_rate=0.01,num_iterations=100000,print_cost=True,title=title)
 
-    # 2.linear separable problem
-    # test_X,test_y = generate_test()
-    # train_X,train_y = generate_train()
-    # title = "linear separable"
-
-    # 3.nonlinear separable problem
+def Linear_Separable():
+    # 2.linear separable problem [solved]
+    test_X,test_y = generate_test()
+    train_X,train_y = generate_train()
+    title = "linear separable"
+    parameters = two_layer_model(train_X,train_y,[3,10,1],batch_size=train_X.shape[1],
+                                 learning_rate=0.01,num_iterations=10000,print_cost=True,title=title
+                                 )
+def NonlinearSeparable():
+    # 3.nonlinear separable problem [unsolved]
     X, y = make_classification(n_samples=1000,n_features=3, n_redundant=0, n_informative=2,
                                    random_state=0, n_clusters_per_class=2)
     train_X, test_X, train_y, test_y =train_test_split(X, y, test_size=.4, random_state=42)
     train_X,train_y= train_X.reshape((3,-1)),train_y.reshape((1,-1))
     test_X,test_y = test_X.reshape((3,-1)),test_y.reshape((1,-1))
     title = "nonlinear separable"
+    parameters = two_layer_model(train_X,train_y,[3,10,1],
+                                 learning_rate=0.01,num_iterations=10000,print_cost=True,
+                                 )
+def ImageClassfication():
+    # 4.image classification
+    np.random.seed(1)
+    train_X_orig, train_y, test_X_orig, test_y, classes = load_data()
+    # Reshape the training and test examples
+    train_X_flatten = train_X_orig.reshape(train_X_orig.shape[0],
+                                           -1).T  # The "-1" makes reshape flatten the remaining dimensions
+    test_X_flatten = test_X_orig.reshape(test_X_orig.shape[0], -1).T
 
+    # Standardize data to have feature values between 0 and 1.
+    train_X = train_X_flatten / 255.
+    test_X = test_X_flatten / 255.
 
-    parameters = two_layer_model(train_X,train_y,[3,10,1],batch_size=train_X.shape[1],
-                                 learning_rate=0.01,num_iterations=1000000,print_cost=True,
-                                 title=title)
+    ### CONSTANTS DEFINING THE MODEL ####
+    n_x = 12288  # num_px * num_px * 3
+    n_h = 7
+    n_y = 1
+    layers_dims = (n_x, n_h, n_y)
 
+    ### CONSTANTS ###
+    layers_dims = [12288, 20, 7, 5, 1]  # 5-layer model
+    parameters = L_layer_model(train_X, train_y, layers_dims, num_iterations = 2500, print_cost = True)
 
-    # debug()
+if __name__ == "__main__":
+    argv = sys.argv[1:]
+    try:
+        opts, args = getopt.getopt(argv, "1234", ["xor","linears","nonlinears","imagecls"])
+    except getopt.GetoptError:
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt in ("-1", "--xor"):
+            XOR()
+        elif opt in ("-2", "--linears"):
+            Linear_Separable()
+        elif opt in ("-3", "--nolinears"):
+            NonlinearSeparable()
+        elif opt in ("-4", "--imagecls"):
+            ImageClassfication()
