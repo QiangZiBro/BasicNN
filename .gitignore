@@ -4,4 +4,6 @@ venv
 .vscode
 testUnit.*
 datasets
+data
 README.pdf
+3rdParty
