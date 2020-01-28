@@ -7,3 +7,5 @@ datasets
 data
 README.pdf
 3rdParty
+
+*.ckpt
